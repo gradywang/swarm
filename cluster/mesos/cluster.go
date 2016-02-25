@@ -40,6 +40,7 @@ type Cluster struct {
 	taskCreationTimeout time.Duration
 	pendingTasks        *task.Tasks
 	engineOpts          *cluster.EngineOpts
+	mesosRole           string
 }
 
 const (
@@ -50,6 +51,7 @@ const (
 	defaultOfferTimeout        = 30 * time.Second
 	defaultRefuseTimeout       = 5 * time.Second
 	defaultTaskCreationTimeout = 5 * time.Second
+	defaultMesosRole           = "*"
 )
 
 var (
@@ -76,6 +78,7 @@ func NewCluster(scheduler *scheduler.Scheduler, TLSConfig *tls.Config, master st
 		taskCreationTimeout: defaultTaskCreationTimeout,
 		engineOpts:          engineOptions,
 		refuseTimeout:       defaultRefuseTimeout,
+		mesosRole:           defaultMesosRole,
 	}
 
 	cluster.pendingTasks = task.NewTasks(cluster)
@@ -122,6 +125,14 @@ func NewCluster(scheduler *scheduler.Scheduler, TLSConfig *tls.Config, master st
 
 	if checkpointFailover, ok := options.Bool("mesos.checkpointfailover", "SWARM_MESOS_CHECKPOINT_FAILOVER"); ok {
 		driverConfig.Framework.Checkpoint = &checkpointFailover
+	}
+
+	if role, ok := options.String("mesos.role", "SWARM_MESOS_ROLE"); ok {
+		role = strings.TrimSpace(role)
+		if role != "" {
+			cluster.mesosRole = role
+			driverConfig.Framework.Role = &role
+		}
 	}
 
 	if offerTimeout, ok := options.String("mesos.offertimeout", "SWARM_MESOS_OFFER_TIMEOUT"); ok {
@@ -538,7 +549,7 @@ func (c *Cluster) LaunchTask(t *task.Task) bool {
 		offerIDs = append(offerIDs, offer.Id)
 	}
 
-	t.Build(n.ID, c.agents[n.ID].offers)
+	t.Build(n.ID, c.agents[n.ID].offers, c.mesosRole)
 
 	offerFilters := &mesosproto.Filters{}
 	refuseSeconds := c.refuseTimeout.Seconds()
