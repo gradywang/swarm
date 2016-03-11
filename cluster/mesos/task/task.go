@@ -60,7 +60,7 @@ func (t *Task) Stop() {
 }
 
 // Build method builds the task
-func (t *Task) Build(slaveID string, offers map[string]*mesosproto.Offer, role string) {
+func (t *Task) Build(slaveID string, offers map[string]*mesosproto.Offer, role string, useRevocableResources bool) {
 	t.Command = &mesosproto.CommandInfo{Shell: proto.Bool(false)}
 
 	t.Container = &mesosproto.ContainerInfo{
@@ -147,6 +147,16 @@ func (t *Task) Build(slaveID string, offers map[string]*mesosproto.Offer, role s
 		for i := range resources {
 			t.Resources = append(t.Resources, resources[i])
 		}
+	}
+
+	// Add a label to the container to mark the actual type of resources it uses.
+	if useRevocableResources {
+		for i := range t.Resources {
+			t.Resources[i].Revocable = &mesosproto.Resource_RevocableInfo{}
+		}
+		t.config.Labels[cluster.SwarmLabelNamespace+".mesos.resourceType"] = "Revocable"
+	} else {
+		t.config.Labels[cluster.SwarmLabelNamespace+".mesos.resourceType"] = "Regular"
 	}
 
 	if len(t.config.Cmd) > 0 && t.config.Cmd[0] != "" {

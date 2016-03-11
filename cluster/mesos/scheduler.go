@@ -47,6 +47,16 @@ func (s *Scheduler) Reregistered(mesosscheduler.SchedulerDriver, *mesosproto.Mas
 // Disconnected method
 func (s *Scheduler) Disconnected(mesosscheduler.SchedulerDriver) {
 	log.WithFields(log.Fields{"name": "mesos"}).Debug("Framework disconnected")
+
+	for _, offer := range s.cluster.listOffers() {
+		if s.cluster.removeOffer(offer) {
+			if _, err := s.driver.DeclineOffer(offer.Id, &mesosproto.Filters{}); err != nil {
+				log.WithFields(log.Fields{"name": "mesos"}).Errorf("Error while declining offer %q: %v", offer.Id.GetValue(), err)
+			} else {
+				log.WithFields(log.Fields{"name": "mesos"}).Debugf("Offer %q declined successfully", offer.Id.GetValue())
+			}
+		}
+	}
 }
 
 // ResourceOffers method
